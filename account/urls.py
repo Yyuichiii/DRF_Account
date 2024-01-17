@@ -1,11 +1,11 @@
 from django.urls import path
-from account.views import RegistrationView, ActivateView, ActivationConfirm, GetCSRFToken,CheckAuthenticatedView, LoginView, UserDetailView, ChangePasswordView, DeleteAccountView, LogoutView, ResetPasswordEmailView, ResetPasswordView, ResetPasswordConfirmView
+from account.views import RegistrationView, ActivateViewAPI, ActivationConfirm, GetCSRFToken,CheckAuthenticatedView, LoginView, UserDetailView, ChangePasswordView, DeleteAccountView, LogoutView, ResetPasswordEmailView, ResetPasswordView, ResetPasswordConfirmView
 
 urlpatterns = [
     path('account/csrf_cookie/', GetCSRFToken.as_view(), name='csrf_cookie'),
     path('account/checkauth/', CheckAuthenticatedView.as_view(), name='check_auth'),
     path('account/registration/', RegistrationView.as_view(), name='register'),
-    path('account/activate/<str:uid>/<str:token>/', ActivateView.as_view(), name='activate'),
+    path('account/activate/<str:uid>/<str:token>/', ActivateViewAPI.as_view(), name='activate'),
     path('account/activate/', ActivationConfirm.as_view(), name='activation_confirm'),
     path('account/login/', LoginView.as_view(), name='login'),
     path('account/user/', UserDetailView.as_view(), name='user_detail'),

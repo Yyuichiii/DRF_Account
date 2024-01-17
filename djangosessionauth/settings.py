@@ -157,6 +157,7 @@ REST_FRAMEWORK = {
     # Enable Session Authentication for App
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+        
     ],
     # Enable IsAuthenticated Permission
     'DEFAULT_PERMISSION_CLASSES': (

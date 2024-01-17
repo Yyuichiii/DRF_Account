@@ -6,13 +6,18 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework.response import Response
 from account.serializers import UserSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect,csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
 from account.utils import send_activation_email, send_reset_password_email
+from rest_framework.authentication import SessionAuthentication
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return  # To not perform the csrf check previously happening
+
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class GetCSRFToken(APIView):
@@ -30,31 +35,53 @@ class CheckAuthenticatedView(APIView):
             return Response({'isAuthenticated': False})
  
 # @method_decorator(csrf_protect, name='dispatch')
-@method_decorator(csrf_exempt,name='dispatch')
-# @csrf_exempt
+@method_decorator(csrf_exempt, name='dispatch')
 class RegistrationView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = UserSerializer(data = request.data)
         if serializer.is_valid():
+
             user = serializer.create(serializer.validated_data)
 
             # Send Account Activation EMail
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            activation_link = reverse('activate', kwargs={'uid':uid, 'token':token})
+            activation_link = reverse('activate', kwargs={'uid':uid, 'token':token})  
             activation_url = f'{settings.SITE_DOMAIN}{activation_link}'
-            # send_activation_email(user.email, activation_url)
+            print("activation_url",activation_url)
+            send_activation_email(user.email, activation_url)
             
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"data":serializer.data,"activation link":activation_url}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(csrf_protect, name='dispatch')
-class ActivateView(APIView):
+# @method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
+class ActivateViewAPI(APIView):
     permission_classes = [AllowAny]
+    def get(self, request,uid,token):
+        if not uid or not token:
+            return Response({'detail': 'Missing uid or token.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            uid = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid)
+            if default_token_generator.check_token(user, token):
+                if user.is_active:
+                    return Response({'detail': 'Account is already activated.'}, status=status.HTTP_200_OK)
+ 
+                user.is_active = True
+                user.save()
+                return Response({'detail': 'Account activated successfully.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'detail': 'Invalid activation link.'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({'detail': 'Invalid activation link.'}, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(csrf_protect, name='dispatch')
+
+# @method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class ActivationConfirm(APIView):
     permission_classes = [AllowAny]
 
@@ -78,9 +105,9 @@ class ActivationConfirm(APIView):
         except User.DoesNotExist:
             return Response({'detail': 'Invalid activation link.'}, status=status.HTTP_400_BAD_REQUEST)
         
-
-@method_decorator(csrf_protect, name='dispatch')
+# @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -95,11 +122,15 @@ class LoginView(APIView):
                 return Response({'detail':'Logged in successfully.'}, status=status.HTTP_200_OK)
         else:
             return Response({'detail': 'Email or Password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+@method_decorator(csrf_exempt,name='dispatch')  
+# @csrf_exempt     
 class UserDetailView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         serializer = UserSerializer(request.user)
-        data = serializer.data
+        data = serializer.data       
         data['is_staff'] = request.user.is_staff
         return Response(data)
     
@@ -123,7 +154,10 @@ class ChangePasswordView(APIView):
         user.save()
         return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
     
+
 class DeleteAccountView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
     def delete(self, request):
         user = request.user
         user.delete()
@@ -131,7 +165,7 @@ class DeleteAccountView(APIView):
         return Response({'detail': 'Account deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
 class LogoutView(APIView):
-    def post(self, request):
+    def get(self, request):
         logout(request)
         return Response({'detail': 'Logged out successfully.'}, status=status.HTTP_200_OK)
     
