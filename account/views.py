@@ -12,6 +12,7 @@ from account.serializers import UserSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect,csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
+from django.core.validators import validate_email
 from account.utils import send_activation_email, send_reset_password_email
 from rest_framework.authentication import SessionAuthentication
 class CsrfExemptSessionAuthentication(SessionAuthentication):
@@ -54,7 +55,8 @@ class RegistrationView(APIView):
             print("activation_url",activation_url)
             send_activation_email(user.email, activation_url)
             
-            return Response({"data":serializer.data,"activation link":activation_url}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # @method_decorator(csrf_protect, name='dispatch')
@@ -142,6 +144,8 @@ class UserDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ChangePasswordView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
+    permission_classes=[IsAuthenticated]
     def post(self, request):
         old_password = request.data.get('old_password')
         new_password = request.data.get('new_password')
@@ -169,11 +173,16 @@ class LogoutView(APIView):
         logout(request)
         return Response({'detail': 'Logged out successfully.'}, status=status.HTTP_200_OK)
     
-@method_decorator(csrf_protect, name='dispatch')
+# @method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class ResetPasswordEmailView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
     permission_classes=[AllowAny]
     def post(self, request):
         email = request.data.get('email')
+
+        if email is None:
+            return Response({'detail': 'Enter the Email.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not User.objects.filter(email=email).exists():
             return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -183,10 +192,10 @@ class ResetPasswordEmailView(APIView):
         # Generate password reset token
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        reset_link = reverse('reset_password', kwargs={'uid': uid, 'token': token})
+        reset_link = reverse('reset_password_confirm', kwargs={'uid': uid, 'token': token})
         # print("Reset Link", reset_link)
         reset_url = f'{settings.SITE_DOMAIN}{reset_link}'
-        # print("Reset URL", reset_url)
+        print("Reset URL", reset_url)
         send_reset_password_email(user.email, reset_url)
 
         return Response({'detail': 'Password reset email sent successfully.'}, status=status.HTTP_200_OK)
@@ -195,12 +204,16 @@ class ResetPasswordEmailView(APIView):
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
-@method_decorator(csrf_protect, name='dispatch')
+# @method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class ResetPasswordConfirmView(APIView):
+    authentication_classes=[CsrfExemptSessionAuthentication]
     permission_classes=[AllowAny]
-    def post(self, request):
-        uid = request.data.get('uid')
-        token = request.data.get('token')
+    def post(self, request,uid,token):
+        # uid = request.data.get('uid')
+        uid = uid
+        # token = request.data.get('token')
+        token = token
         if not uid or not token:
             return Response({'detail': 'Missing uid or token.'}, status=status.HTTP_400_BAD_REQUEST)
         try:

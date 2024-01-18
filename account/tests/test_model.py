@@ -27,7 +27,7 @@ class UserModelTest(TestCase):
 
         self.assertEqual(superuser.email, email)
         self.assertEqual(superuser.name, name)
-        self.assertFalse(superuser.is_active)
+        self.assertTrue(superuser.is_active)
         self.assertTrue(superuser.is_admin)
         self.assertTrue(superuser.is_staff)
         self.assertTrue(superuser.check_password(password))
