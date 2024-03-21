@@ -75,19 +75,6 @@ DATABASES = {
 }
 
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': os.environ.get('DB_NAME'),
-#         'USER': os.environ.get('DB_USER'),
-#         'PASSWORD': os.environ.get('DB_PASS'),
-#         'HOST':'127.0.0.1',
-#         'PORT':'3306',
-#         'OPTIONS':{
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
-#         }
-#     }
-# }
 
 
 # Password validation
@@ -164,7 +151,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     # Disable Browsable API and Render JSON
-    'DEFAULT_RENDERER_CLASSES':('rest_framework.renderers.JSONRenderer',),
+    'DEFAULT_RENDERER_CLASSES':('rest_framework.renderers.JSONRenderer','rest_framework.renderers.BrowsableAPIRenderer',),
+    
 }
 
 # Sessionid Expire default is 1209600 sec = 14 days

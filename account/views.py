@@ -210,10 +210,7 @@ class ResetPasswordConfirmView(APIView):
     authentication_classes=[CsrfExemptSessionAuthentication]
     permission_classes=[AllowAny]
     def post(self, request,uid,token):
-        # uid = request.data.get('uid')
-        uid = uid
-        # token = request.data.get('token')
-        token = token
+
         if not uid or not token:
             return Response({'detail': 'Missing uid or token.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
